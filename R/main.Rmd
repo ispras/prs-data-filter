@@ -1,0 +1,155 @@
+---
+title: "PLOTS from PCA obtained in hail"
+output: html_notebook
+---
+```{r}
+ pca_all <- read.delim('pca_12K_and_external_26krsids.tsv', header = F, row.names = 1, sep = ',')
+ library(pheatmap)
+ library(RColorBrewer)
+ library(wordspace)
+ ethnic <- read.table('ethnic_anno.tsv',header = T, row.names = 1)
+ merge <- merge(ethnic, pca_all, by = 0)
+ row.names(merge) <- merge$Row.names
+ merge <- merge[,2:4]
+
+ pos <- aggregate(merge[, c("V2","V3")], list(merge$ethnic), median)
+
+ethnic$Samples <- NA
+ethnic[ethnic$ethnic == 'Rus',]$Samples <- 'This study'
+ethnic[ethnic$ethnic != 'Rus',]$Samples <- 'External data'
+
+```
+
+```{r}
+#correlationmatrix <- cor(t(pca_all), use = 'pairwise.complete.obs', method = 'pearson')
+system.time(dist_cacl <- dist(pca_all, method = 'euclidean'))
+hclust_obj <- hclust(as.dist(dist_cacl),method = 'complete')
+
+
+```
+
+```{r,fig.width = 15,fig.height = 15}
+library(ggplot2)
+library(ggrepel)
+clena_set <- read.table('/home/rstudio/clean_id.cov',header = T)
+
+clast <- cutree(hclust_obj, k=30)
+for_plot <- merge(merge,clast , by =0)
+for_plot <- for_plot[for_plot$Row.names %in% clena_set$FID,]
+for_plot$y <- as.factor(for_plot$y)
+clust_1 <- for_plot[for_plot$y %in% c(1, 2), ]
+clust_1$cluster <- 1
+clust_2 <- for_plot[for_plot$y %in% c(3, 4, 7, 9, 12, 14), ]
+clust_2$cluster <- 2
+data_for_plot <- rbind(clust_1, clust_2)
+data_for_plot$cluster <- as.factor(data_for_plot$cluster)
+library(dplyr)
+`%!in%` <- Negate(`%in%`)
+rest <- for_plot[for_plot$Row.names %!in% data_for_plot$Row.names,]
+rest$cluster <- 3
+ggplot(data = rbind(rest, data_for_plot), aes(x = V2, y = V3)) +
+geom_point(aes(color=cluster), size=2, alpha = 0.5) +
+geom_text_repel(data = pos, aes(label=Group.1), size=3, colour="black")
+clust_3 <- rest
+clust_3$cluster <- 3
+write.csv(rbind(clust_1, clust_2, clust_3), "/home/rstudio/clust1.tsv", row.names = FALSE)
+```
+```{r}
+table(clast)
+
+```
+
+
+
+```{r,fig.width = 15,fig.height = 15}
+library(ggplot2)
+library(ggrepel)
+clast <- cutree(hclust_obj, k=28)
+for_plot <- merge(merge,clast , by =0)
+row.names(for_plot) <- for_plot$Row.names
+
+for_plot$y <- as.factor(for_plot$y)
+  ggplot(data = for_plot, aes(x = V2, y = V3)) +
+     geom_point(aes(color=y), size=2, alpha = 0.5)+
+geom_text_repel(data = pos, aes(label=Group.1), size=3, colour="black")
+```
+```{r}
+table(clast)
+
+```
+
+```{r,fig.width = 15,fig.height = 15}
+clast <- cutree(hclust_obj, k=40)
+for_plot <- merge(merge,clast , by =0)
+row.names(for_plot) <- for_plot$Row.names
+
+for_plot$y <- as.factor(for_plot$y)
+  ggplot(data = for_plot[for_plot$ethnic == 'Rus',], aes(x = V2, y = V3)) +
+     geom_point(aes(color=y), size=2, alpha = 0.5)+
+geom_text_repel(data = pos, aes(label=Group.1), size=3, colour="black")
+
+```
+
+```{r}
+table(clast)
+```
+
+```{r}
+clena_set <- read.table('clear_id.cov',header = T)
+```
+
+```{r,fig.width = 15,fig.height = 15}
+for_plot$y <- as.factor(for_plot$y)
+  ggplot(data = for_plot[for_plot$Row.names %in% clena_set$FID,], aes(x = V2, y = V3)) +
+     geom_point(aes(color=y), size=2, alpha = 0.5)+
+geom_text_repel(data = pos, aes(label=Group.1), size=3, colour="black")
+```
+
+```{r}
+table(for_plot$Row.names %in% clena_set$FID)
+```
+```{r}
+all_1 <- read.table('/home/rstudio/shared/bmi/clust_eug/all_1.best',header = T)
+all_1_pheno <- read.table('/home/rstudio/shared/bmi/clust_eug/all_1.pheno',header = T)
+for_plot <- merge(all_1, all_1_pheno, by='FID')
+for_plot$metric_deciles <- with(for_plot, cut(PRS, breaks=quantile(PRS, probs=seq(0,1, by=0.1), na.rm=TRUE), include.lowest=TRUE, dig.lab = 10, labels=FALSE))
+for_plot$cluster <- '1'
+
+all_2 <- read.table('/home/rstudio/shared/bmi/clust_eug/all_2.best',header = T)
+all_2_pheno <- read.table('/home/rstudio/shared/bmi/clust_eug/all_2.pheno',header = T)
+for_plot2 <- merge(all_2, all_2_pheno, by='FID')
+for_plot2$metric_deciles <- with(for_plot2, cut(PRS, breaks=quantile(PRS, probs=seq(0,1, by=0.1), na.rm=TRUE), include.lowest=TRUE, dig.lab = 10, labels=FALSE))
+for_plot2$cluster <- '2'
+
+all_3 <- read.table('/home/rstudio/shared/bmi/clust_eug/all_3.best',header = T)
+all_3_pheno <- read.table('/home/rstudio/shared/bmi/clust_eug/all_3.pheno',header = T)
+for_plot3 <- merge(all_3, all_3_pheno, by='FID')
+for_plot3$metric_deciles <- with(for_plot3, cut(PRS, breaks=quantile(PRS, probs=seq(0,1, by=0.1), na.rm=TRUE), include.lowest=TRUE, dig.lab = 10, labels=FALSE))
+for_plot3$cluster <- '3'
+
+ggplot(data=rbind(for_plot, for_plot2, for_plot3), aes(x=factor(metric_deciles), y=zscore, fill=cluster)) + geom_boxplot() + xlab("PRS, deciles")+ylab('z-score')+ggtitle('BMI')
+```
+```{r}
+
+vg <- read.table('/home/rstudio/shared/time_stats/vg_time_stats.tsv',header = T)
+vg$tool <- 'vg'
+hisat2 <- read.table('/home/rstudio/shared/time_stats/hisat2_time_stats.tsv',header = T)
+hisat2$tool <- 'hisat2'
+minimap2 <- read.table('/home/rstudio/shared/time_stats/minimap2_time_stats.tsv',header = T)
+minimap2$tool <- 'minimap2'
+vg <- vg[vg$name %in% hisat2$name, ]
+vg <- vg[vg$name %in% minimap2$name, ]
+
+hisat2 <- hisat2[hisat2$name %in% vg$name, ]
+minimap2 <- minimap2[minimap2$name %in% vg$name, ]
+
+vg$metric_deciles <- with(vg, cut(read, breaks=quantile(read, probs=seq(0,1, by=0.1), na.rm=TRUE), include.lowest=TRUE, dig.lab = 10, labels=FALSE))
+
+hisat2$metric_deciles <- with(hisat2, cut(read, breaks=quantile(read, probs=seq(0,1, by=0.1), na.rm=TRUE), include.lowest=TRUE, dig.lab = 10, labels=FALSE))
+
+minimap2$metric_deciles <- with(minimap2, cut(read, breaks=quantile(read, probs=seq(0,1, by=0.1), na.rm=TRUE), include.lowest=TRUE, dig.lab = 10, labels=FALSE))
+
+ggplot(data=rbind(vg, hisat2, minimap2), aes(x=factor(metric_deciles), y=velocity, fill=tool)) + geom_boxplot() + xlab("reads, deciles")+ylab('pair read / second')+ggtitle('Velocity')
+
+```
+
